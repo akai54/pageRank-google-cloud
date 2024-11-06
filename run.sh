@@ -1,33 +1,37 @@
 #!/bin/bash
 
-## En local ->
-## pig -x local -
+# Paramètres du cluster
+CLUSTER_NAME="cluster-a35a"
+BUCKET_NAME="beshoux-large_bucket" 
 
-## en dataproc...
+# Crée le cluster avec le nombre de nœuds spécifié
+gcloud dataproc clusters create $CLUSTER_NAME \
+    --enable-component-gateway \
+    --region europe-west1 \
+    --zone europe-west1-c \
+    --master-machine-type n1-standard-4 \
+    --master-boot-disk-size 50 \
+    --num-workers 0 \   # Ajuste pour 1, 2, ou 4 nœuds selon le test
+    --worker-machine-type n1-standard-4 \
+    --worker-boot-disk-size 50 \
+    --image-version 2.0-debian10 \
+    --project master-2-large-scale-data
 
+# Copie des données dans le bucket GCS
+gsutil cp small_page_links.nt gs://$BUCKET_NAME/
 
-## create the cluster
-gcloud dataproc clusters create cluster-a35a --enable-component-gateway --region europe-west1 --zone europe-west1-c --master-machine-type n1-standard-4 --master-boot-disk-size 50 --num-workers 0 --worker-machine-type n1-standard-4 --worker-boot-disk-size 50 --image-version 2.0-debian10 --project master-2-large-scale-data
+# Copie du code PySpark (par exemple, un script basé sur PyPageRank.ipynb)
+gsutil cp PyPageRank.py gs://$BUCKET_NAME/
 
+# Nettoie le répertoire de sortie
+gsutil rm -rf gs://$BUCKET_NAME/out
 
-## copy data
-#gsutil cp small_page_links.nt gs://myown_bucket/
+# Exécute le job PySpark
+gcloud dataproc jobs submit pyspark gs://$BUCKET_NAME/PyPageRank.py \
+    --cluster $CLUSTER_NAME --region europe-west1
 
-## copy pig code
-gsutil cp dataproc.py gs://myown_bucket/
+# Affiche les résultats
+gsutil cat gs://$BUCKET_NAME/out/pagerank_data_10/part-r-00000
 
-## Clean out directory
-gsutil rm -rf gs://myown_bucket/out
-gsutil rm -rf gs://small_page_links/out
-
-
-## run
-## (suppose that out directory is empty !!)
-gcloud dataproc jobs submit pig --region europe-west1-b --cluster cluster-b541 -f gs://myown_bucket/dataproc.py
-
-## access results
-gsutil cat gs://myown_bucket/out/pagerank_data_10/part-r-00000
-
-## delete cluster...
-gcloud dataproc clusters delete cluster-b541 --region europe-west1
-
+# Supprime le cluster pour éviter les frais supplémentaires
+gcloud dataproc clusters delete $CLUSTER_NAME --region europe-west1 -q
