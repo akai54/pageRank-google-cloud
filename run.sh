@@ -11,24 +11,24 @@ gcloud dataproc clusters create $CLUSTER_NAME \
     --zone europe-west1-c \
     --master-machine-type n1-standard-4 \
     --master-boot-disk-size 50 \
-    --num-workers 0 \   # Ajuste pour 1, 2, ou 4 nœuds selon le test
+    --num-workers 1 \   
     --worker-machine-type n1-standard-4 \
     --worker-boot-disk-size 50 \
     --image-version 2.0-debian10 \
     --project master-2-large-scale-data
 
 # Copie des données dans le bucket GCS
-gsutil cp small_page_links.nt gs://$BUCKET_NAME/
+ gsutil cp small_page_links.nt gs://$BUCKET_NAME/
 
-# Copie du code PySpark (par exemple, un script basé sur PyPageRank.ipynb)
+# Copie du code PySpark
 gsutil cp PyPageRank.py gs://$BUCKET_NAME/
 
 # Nettoie le répertoire de sortie
 gsutil rm -rf gs://$BUCKET_NAME/out
+gsutil rm -rf gs://small_page_links/out
 
 # Exécute le job PySpark
-gcloud dataproc jobs submit pyspark gs://$BUCKET_NAME/PyPageRank.py \
-    --cluster $CLUSTER_NAME --region europe-west1
+gcloud dataproc jobs submit pig --region europe-west1 --cluster cluster-a35a -f gs://$BUCKET_NAME/dataproc.py
 
 # Affiche les résultats
 gsutil cat gs://$BUCKET_NAME/out/pagerank_data_10/part-r-00000
